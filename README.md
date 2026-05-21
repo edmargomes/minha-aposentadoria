@@ -1,15 +1,35 @@
 # Controle de Investimentos para Aposentadoria
 
-Aplicação desktop nativa para acompanhamento de investimentos com foco em atingir R$ 100.000 em 5 anos.
+Aplicação desktop nativa para acompanhamento de investimentos com foco em atingir suas metas financeiras com inteligência.
 
-## Funcionalidades
-- Dashboard com métricas em tempo real.
-- Gráfico de evolução com projeção ideal vs patrimônio real.
-- Gerenciamento de investimentos (CRUD completo).
-- Histórico de valores por investimento.
-- Interface desktop nativa (PyWebView).
+![Interface do Software](primeira-tela-software.png)
 
-## Como Executar
+## 🚀 Guia Rápido para Iniciantes
+
+Se você é novo no aplicativo, aqui está como ele funciona de forma simples:
+
+### 1. Configure sua Meta
+Clique no ícone de **engrenagem** no topo. Defina quanto você quer ter no futuro, quanto já tem hoje e em quantos meses quer chegar lá. O sistema calculará automaticamente quanto você precisa poupar por mês.
+
+### 2. Cadastre seus Ativos (Onde está o dinheiro)
+Use o botão **"+ Novo Ativo"** para listar suas contas (Ex: Poupança, Tesouro Direto, CDB). 
+- O **Saldo Atual** é o que mostra quão perto você está do seu objetivo final. 
+- Você não precisa atualizar isso todo dia! Pode atualizar uma vez por mês ou a cada três meses.
+
+### 3. Registre seus Aportes (Seu compromisso mensal)
+Sempre que você investir dinheiro novo, clique em **"+ Registrar Aporte"**. 
+- Isso serve para o sistema saber que você cumpriu sua parte no mês.
+- A barra de progresso no topo ficará verde quando você atingir sua meta de economia mensal.
+
+### 4. Entenda o Gráfico
+- **Linha Azul**: O caminho ideal para bater sua meta.
+- **Linha Amarela (Pontilhada)**: Onde seu dinheiro *deveria* estar se você fizer os aportes e a rentabilidade for a esperada.
+- **Linha Verde**: Onde seu dinheiro *realmente* está (baseado nas suas atualizações de Ativos).
+
+---
+
+## 🛠️ Como Executar (Para Desenvolvedores)
+...
 
 O projeto utiliza um `Makefile` para automatizar as tarefas de configuração e execução.
 
