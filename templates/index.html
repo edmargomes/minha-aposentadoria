@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Investimentos - Aposentadoria</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="bg-gray-100 text-gray-800 min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <header class="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
+            <h1 class="text-3xl font-bold text-gray-900">Minha Aposentadoria</h1>
+            <div class="flex flex-wrap justify-center gap-3">
+                <button id="btn-settings" class="bg-white hover:bg-gray-50 text-gray-700 font-bold py-2 px-3 rounded-lg border border-gray-200 shadow-sm transition duration-200 flex items-center" title="Configurações">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                </button>
+                <button id="btn-add-contribution" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg shadow-sm transition duration-200">
+                    + Registrar Aporte
+                </button>
+                <button id="btn-add-asset" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-sm transition duration-200">
+                    + Novo Ativo
+                </button>
+            </div>
+        </header>
+
+        <!-- Dashboard Metrics -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+                <p class="text-sm text-gray-500 font-medium">Meta mensal de aporte</p>
+                <p id="metric-monthly-target" class="text-2xl font-bold text-gray-900">R$ 0,00</p>
+            </div>
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+                <p class="text-sm text-gray-500 font-medium">Aportado este mês</p>
+                <div class="flex items-baseline gap-2">
+                    <p id="metric-invested-month" class="text-2xl font-bold text-gray-900">R$ 0,00</p>
+                    <span id="status-month" class="text-xs font-bold px-2 py-1 rounded-full bg-gray-100 text-gray-500">Pendente</span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-2 mt-2">
+                    <div id="month-progress-bar" class="bg-green-600 h-2 rounded-full" style="width: 0%"></div>
+                </div>
+            </div>
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+                <p class="text-sm text-gray-500 font-medium">Patrimônio Atual (Saldo)</p>
+                <p id="metric-current-equity" class="text-2xl font-bold text-gray-900">R$ 0,00</p>
+            </div>
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+                <p class="text-sm text-gray-500 font-medium">Rentabilidade Real</p>
+                <p id="metric-profitability" class="text-2xl font-bold text-gray-900">0.0%</p>
+            </div>
+
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+                <p id="label-total-goal" class="text-sm text-gray-500 font-medium">Meta Total</p>
+                <p id="metric-total-goal" class="text-2xl font-bold text-gray-900">R$ 0,00</p>
+            </div>
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+                <p class="text-sm text-gray-500 font-medium">Total Aportado (Histórico)</p>
+                <p id="metric-total-invested" class="text-2xl font-bold text-gray-900">R$ 0,00</p>
+            </div>
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+                <p class="text-sm text-gray-500 font-medium">Faltam para Meta</p>
+                <p id="metric-remaining-amount" class="text-2xl font-bold text-red-600">R$ 0,00</p>
+            </div>
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+                <p class="text-sm text-gray-500 font-medium">Progresso da Meta</p>
+                <p id="metric-overall-progress" class="text-2xl font-bold text-blue-600">0.0%</p>
+            </div>
+        </div>
+
+        <!-- Chart Section -->
+        <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 mb-8">
+            <h2 class="text-xl font-bold mb-4">Evolução do Patrimônio</h2>
+            <div class="h-64 md:h-80">
+                <canvas id="evolutionChart"></canvas>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Asset List (Where the money is) -->
+            <div class="lg:col-span-2">
+                <h2 class="text-2xl font-bold mb-4 flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                    </svg>
+                    Meus Ativos (Saldo Atual)
+                </h2>
+                <div id="assets-list" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <!-- Asset cards injected here -->
+                    <div id="assets-empty-state" class="col-span-full text-center py-12 bg-white rounded-xl border-2 border-dashed border-gray-200">
+                        <p class="text-gray-500">Cadastre seus ativos para ver o saldo total.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Contribution List (Monthly effort) -->
+            <div>
+                <h2 class="text-2xl font-bold mb-4 flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Aportes do Mês
+                </h2>
+                <div id="contributions-list" class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                    <!-- Contributions list injected here -->
+                    <div id="contributions-empty-state" class="p-8 text-center text-gray-500 italic">
+                        Nenhum aporte registrado este mês.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Add/Edit Asset -->
+    <div id="asset-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
+            <div class="p-6">
+                <h3 id="asset-modal-title" class="text-xl font-bold mb-4">Novo Ativo</h3>
+                <form id="asset-form">
+                    <input type="hidden" id="asset-id">
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Nome do ativo (ex: Tesouro Selic)</label>
+                        <input type="text" id="asset-name" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Instituição (ex: NuInvest, Inter)</label>
+                        <input type="text" id="asset-institution" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Saldo Atual (R$)</label>
+                        <input type="number" step="0.01" min="0" id="asset-value" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                    </div>
+                    
+                    <div id="asset-history-section" class="hidden mt-6">
+                        <h4 class="text-xs font-bold text-gray-400 uppercase mb-2">Histórico de Saldo</h4>
+                        <div id="asset-history-list" class="max-h-32 overflow-y-auto border-t border-gray-50"></div>
+                    </div>
+
+                    <div class="flex justify-between items-center mt-8 gap-3">
+                        <button type="button" id="btn-asset-delete" class="hidden bg-red-100 text-red-600 font-bold py-2 px-4 rounded-lg">Excluir</button>
+                        <div class="flex gap-3 ml-auto">
+                            <button type="button" id="btn-asset-cancel" class="text-gray-500 font-medium px-4">Cancelar</button>
+                            <button type="submit" class="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg">Salvar</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Add Contribution -->
+    <div id="contribution-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
+            <div class="p-6">
+                <h3 class="text-xl font-bold mb-4">Registrar Aporte Mensal</h3>
+                <form id="contribution-form">
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Valor do Aporte (R$)</label>
+                        <input type="number" step="0.01" min="0" id="cont-amount" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none">
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Descrição (opcional)</label>
+                        <input type="text" id="cont-desc" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none" placeholder="Ex: Sobra de salário, Bônus">
+                    </div>
+                    <div class="flex justify-end mt-8 gap-3">
+                        <button type="button" id="btn-cont-cancel" class="text-gray-500 font-medium px-4">Cancelar</button>
+                        <button type="submit" class="bg-green-600 text-white font-bold py-2 px-4 rounded-lg">Confirmar Aporte</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Settings -->
+    <div id="settings-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
+            <div class="p-6">
+                <h3 class="text-xl font-bold mb-4">Configurações da Meta</h3>
+                <form id="settings-form">
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Meta financeira total (R$)</label>
+                        <input type="number" step="0.01" min="0" id="setting-goal" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Patrimônio Inicial (R$)</label>
+                        <input type="number" step="0.01" min="0" id="setting-initial-wealth" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Rentabilidade desejada (% ao ano)</label>
+                        <input type="number" step="0.1" min="0" id="setting-rate" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Prazo para alcançar (meses)</label>
+                        <input type="number" step="1" min="1" id="setting-months" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                    </div>
+                    <div class="flex justify-end mt-8 gap-3">
+                        <button type="button" id="btn-settings-cancel" class="text-gray-500 font-medium px-4">Cancelar</button>
+                        <button type="submit" class="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg">Salvar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
