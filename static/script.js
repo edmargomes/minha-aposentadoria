@@ -19,10 +19,8 @@ function setupEventListeners() {
     document.getElementById('btn-asset-delete').addEventListener('click', deleteAsset);
     document.getElementById('asset-form').addEventListener('submit', saveAsset);
     
-    // Contribution events
-    document.getElementById('btn-add-contribution').addEventListener('click', () => openContributionModal());
-    document.getElementById('btn-cont-cancel').addEventListener('click', closeContributionModal);
-    document.getElementById('contribution-form').addEventListener('submit', saveContribution);
+    document.getElementById('btn-asset-mode-contribution').addEventListener('click', () => setAssetMode('contribution'));
+    document.getElementById('btn-asset-mode-balance').addEventListener('click', () => setAssetMode('balance'));
 
     // Settings events
     document.getElementById('btn-settings').addEventListener('click', openSettingsModal);
@@ -30,8 +28,13 @@ function setupEventListeners() {
     document.getElementById('settings-form').addEventListener('submit', saveSettings);
     
     // Global click outside to close modals
+    let lastMouseDownTarget = null;
+    window.addEventListener('mousedown', (e) => {
+        lastMouseDownTarget = e.target;
+    });
+
     window.onclick = (event) => {
-        if (event.target.id.endsWith('-modal')) {
+        if (event.target.id.endsWith('-modal') && event.target === lastMouseDownTarget) {
             event.target.classList.add('hidden');
         }
     };
@@ -106,13 +109,13 @@ function createAssetCard(asset) {
     div.className = 'asset-card bg-white p-4 rounded-xl shadow-sm border border-gray-200 cursor-pointer hover:shadow-md transition duration-200';
     div.onclick = () => openAssetModal(asset.id);
     
-    let variationHtml = '';
-    if (asset.previous_value !== null) {
-        const diff = asset.current_value - asset.previous_value;
-        const colorClass = diff >= 0 ? 'text-green-600' : 'text-red-600';
-        const icon = diff >= 0 ? '↑' : '↓';
-        if (diff !== 0) {
-            variationHtml = `<span class="${colorClass} text-xs font-bold flex items-center gap-1">${icon} ${formatCurrency(Math.abs(diff))}</span>`;
+    let yieldHtml = '';
+    if (asset.total_invested !== null) {
+        const yieldAmount = asset.current_value - asset.total_invested;
+        const colorClass = yieldAmount > 0 ? 'text-green-600' : (yieldAmount < 0 ? 'text-red-600' : 'hidden');
+        const icon = yieldAmount > 0 ? '↑' : '↓';
+        if (Math.abs(yieldAmount) > 0.01) {
+            yieldHtml = `<span class="${colorClass} text-xs font-bold flex items-center gap-1">${icon} ${formatCurrency(Math.abs(yieldAmount))}</span>`;
         }
     }
 
@@ -122,7 +125,7 @@ function createAssetCard(asset) {
                 <h3 class="font-bold text-gray-900 leading-tight">${asset.name}</h3>
                 <p class="text-xs text-gray-400">${asset.institution || 'Geral'}</p>
             </div>
-            ${variationHtml}
+            ${yieldHtml}
         </div>
         <p class="text-xl font-black text-gray-800">${formatCurrency(asset.current_value)}</p>
     `;
@@ -131,39 +134,105 @@ function createAssetCard(asset) {
 
 async function openAssetModal(assetId = null) {
     const modal = document.getElementById('asset-modal');
-    const form = document.getElementById('asset-form');
     const title = document.getElementById('asset-modal-title');
-    const btnDelete = document.getElementById('btn-asset-delete');
+    const deleteBtn = document.getElementById('btn-asset-delete');
+    const actionsDiv = document.getElementById('asset-update-actions');
     const historySection = document.getElementById('asset-history-section');
+    const idInput = document.getElementById('asset-id');
+    const nameInput = document.getElementById('asset-name');
+    const instInput = document.getElementById('asset-institution');
+    const valInput = document.getElementById('asset-value');
     
-    form.reset();
-    document.getElementById('asset-id').value = assetId || '';
-    
+    // Reset
+    idInput.value = assetId || '';
+    nameInput.value = '';
+    instInput.value = '';
+    valInput.value = '';
+    deleteBtn.classList.add('hidden');
+    actionsDiv.classList.add('hidden');
+    historySection.classList.add('hidden');
+    setAssetMode('balance'); // Default mode
+
     if (assetId) {
-        title.innerText = 'Editar Ativo';
-        btnDelete.classList.remove('hidden');
-        historySection.classList.remove('hidden');
+        title.innerText = 'Gerenciar Ativo';
         try {
             const response = await fetch(`/api/investments/${assetId}`);
             const asset = await response.json();
-            document.getElementById('asset-name').value = asset.name;
-            document.getElementById('asset-institution').value = asset.institution || '';
-            document.getElementById('asset-value').value = asset.history[0].value;
             
-            const historyList = document.getElementById('asset-history-list');
-            historyList.innerHTML = asset.history.map(h => `
-                <div class="flex justify-between py-1 text-xs border-b border-gray-50 last:border-0">
-                    <span class="text-gray-400">${new Date(h.date + 'T12:00:00').toLocaleDateString('pt-BR')}</span>
-                    <span class="font-medium text-gray-600">${formatCurrency(h.value)}</span>
-                </div>
-            `).join('');
+            nameInput.value = asset.name;
+            instInput.value = asset.institution || '';
+            
+            // Show update actions for existing assets
+            actionsDiv.classList.remove('hidden');
+            deleteBtn.classList.remove('hidden');
+            
+            // Render history
+            if (asset.history && asset.history.length > 0) {
+                historySection.classList.remove('hidden');
+                const list = document.getElementById('asset-history-list');
+                list.innerHTML = asset.history.map((h, index) => `
+                    <div class="flex justify-between items-center py-2 text-xs border-b border-gray-50 last:border-0 group">
+                        <div class="flex flex-col">
+                            <span class="text-gray-500">${new Date(h.date + 'T12:00:00').toLocaleDateString('pt-BR')}</span>
+                            <span class="font-bold ${h.type === 'contribution' ? 'text-blue-600' : 'text-gray-400'} uppercase text-[9px]">
+                                ${h.type === 'contribution' ? 'Valor Aportado' : 'Saldo Total Informado'}
+                            </span>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <span class="font-bold text-gray-700">${formatCurrency(h.value)}</span>
+                            <button type="button" onclick="deleteHistoryEntry(event, ${h.id}, ${asset.id})" class="text-red-300 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+                
+                // Prefill value with calculated current balance
+                valInput.value = asset.current_value;
+            }
         } catch (error) { console.error(error); }
     } else {
         title.innerText = 'Novo Ativo';
-        btnDelete.classList.add('hidden');
-        historySection.classList.add('hidden');
+        // For new assets, we just want the initial value (contribution)
+        setAssetMode('contribution');
+        document.getElementById('label-asset-value').innerText = 'Valor Inicial (R$)';
     }
+
     modal.classList.remove('hidden');
+}
+
+function setAssetMode(mode) {
+    const btnCont = document.getElementById('btn-asset-mode-contribution');
+    const btnBal = document.getElementById('btn-asset-mode-balance');
+    const label = document.getElementById('label-asset-value');
+    const help = document.getElementById('help-asset-value');
+    const actionInput = document.getElementById('asset-action-type');
+    
+    if (!actionInput) return; // Guard for script initialization
+
+    actionInput.value = mode;
+    
+    if (mode === 'contribution') {
+        btnCont.classList.add('border-blue-500', 'bg-blue-50');
+        btnCont.classList.remove('border-blue-100');
+        btnBal.classList.add('border-gray-100');
+        btnBal.classList.remove('border-blue-500', 'bg-blue-50');
+        
+        label.innerText = 'Valor do Aporte (R$)';
+        help.innerText = 'Este valor será somado ao custo do ativo e considerado no cálculo de rentabilidade.';
+        help.classList.remove('hidden');
+    } else {
+        btnBal.classList.add('border-blue-500', 'bg-blue-50');
+        btnBal.classList.remove('border-gray-100');
+        btnCont.classList.add('border-blue-100');
+        btnCont.classList.remove('border-blue-500', 'bg-blue-50');
+        
+        label.innerText = 'Saldo Real Atual (R$)';
+        help.innerText = 'Informe o valor total que aparece no seu extrato hoje para calcularmos os ganhos.';
+        help.classList.remove('hidden');
+    }
 }
 
 function closeAssetModal() { document.getElementById('asset-modal').classList.add('hidden'); }
@@ -174,14 +243,17 @@ async function saveAsset(e) {
     const name = document.getElementById('asset-name').value;
     const institution = document.getElementById('asset-institution').value;
     const value = parseFloat(document.getElementById('asset-value').value);
-    const url = id ? `/api/investments/${id}` : '/api/investments';
+    const type = document.getElementById('asset-action-type').value;
+
     const method = id ? 'PUT' : 'POST';
-    
+    const url = id ? `/api/investments/${id}` : '/api/investments';
+    const body = { name, institution, value, type };
+
     try {
         const response = await fetch(url, {
             method,
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, institution, value })
+            body: JSON.stringify(body)
         });
         if (response.ok) { closeAssetModal(); initApp(); }
     } catch (error) { console.error(error); }
@@ -205,7 +277,7 @@ async function updateContributionsList() {
         const contributions = await response.json();
         const listContainer = document.getElementById('contributions-list');
         const emptyState = document.getElementById('contributions-empty-state');
-        
+
         listContainer.innerHTML = '';
         if (contributions.length === 0) {
             listContainer.appendChild(emptyState);
@@ -226,22 +298,18 @@ async function updateContributionsList() {
     } catch (error) { console.error(error); }
 }
 
-function openContributionModal() { document.getElementById('contribution-modal').classList.remove('hidden'); }
-function closeContributionModal() { document.getElementById('contribution-modal').classList.add('hidden'); }
-
-async function saveContribution(e) {
-    e.preventDefault();
-    const amount = parseFloat(document.getElementById('cont-amount').value);
-    const description = document.getElementById('cont-desc').value;
-    
-    try {
-        const response = await fetch('/api/contributions', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ amount, description })
-        });
-        if (response.ok) { closeContributionModal(); initApp(); }
-    } catch (error) { console.error(error); }
+async function deleteHistoryEntry(event, historyId, assetId) {
+    event.stopPropagation();
+    if (confirm('Deseja excluir este registro do histórico?')) {
+        try {
+            const response = await fetch(`/api/investments/history/${historyId}`, { method: 'DELETE' });
+            if (response.ok) {
+                // Refresh modal and dashboard
+                openAssetModal(assetId);
+                initApp();
+            }
+        } catch (error) { console.error(error); }
+    }
 }
 
 // --- SETTINGS ---

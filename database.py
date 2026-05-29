@@ -38,7 +38,7 @@ def init_db():
     # 2. Investment History Table
     migrate_table(cursor, 'investment_history',
         "(id INTEGER PRIMARY KEY AUTOINCREMENT, investment_id INTEGER NOT NULL, value DECIMAL(10, 2) NOT NULL, date DATE NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (investment_id) REFERENCES investments(id) ON DELETE CASCADE)",
-        [] # Add new history columns here in the future
+        [('type', "TEXT NOT NULL DEFAULT 'balance'")]
     )
     
     # 3. Monthly Contributions Table

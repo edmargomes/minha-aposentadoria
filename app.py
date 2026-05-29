@@ -21,13 +21,58 @@ def index():
 def get_investments():
     conn = database.get_db_connection()
     cursor = conn.cursor()
-    cursor.execute('''
-        SELECT i.id, i.name, i.institution,
-               (SELECT h.value FROM investment_history h WHERE h.investment_id = i.id ORDER BY h.date DESC, h.id DESC LIMIT 1) as current_value,
-               (SELECT h.value FROM investment_history h WHERE h.investment_id = i.id ORDER BY h.date DESC, h.id DESC LIMIT 1 OFFSET 1) as previous_value
-        FROM investments i
-    ''')
-    investments = [dict(row) for row in cursor.fetchall()]
+    # current_value = (last balance update) + (all contributions after that balance update)
+    # total_invested = sum of all contributions
+    
+    investments = []
+    cursor.execute('SELECT id, name, institution FROM investments')
+    rows = cursor.fetchall()
+    
+    for row in rows:
+        inv_id = row['id']
+        
+        # Calculate Current Value
+        # 1. Find the latest balance update
+        cursor.execute('''
+            SELECT value, date, id FROM investment_history 
+            WHERE investment_id = ? AND type = 'balance' 
+            ORDER BY date DESC, id DESC LIMIT 1
+        ''', (inv_id,))
+        last_balance_row = cursor.fetchone()
+        
+        if last_balance_row:
+            last_balance = float(last_balance_row['value'])
+            # 2. Sum contributions after that balance update
+            cursor.execute('''
+                SELECT SUM(value) FROM investment_history 
+                WHERE investment_id = ? AND type = 'contribution' 
+                AND (date > ? OR (date = ? AND id > ?))
+            ''', (inv_id, last_balance_row['date'], last_balance_row['date'], last_balance_row['id']))
+            extra_contributions = cursor.fetchone()[0] or 0
+            current_value = last_balance + extra_contributions
+        else:
+            # No balance update, just sum all contributions
+            cursor.execute('''
+                SELECT SUM(value) FROM investment_history 
+                WHERE investment_id = ? AND type = 'contribution'
+            ''', (inv_id,))
+            current_value = cursor.fetchone()[0] or 0
+            
+        # Total Invested is always the sum of all contributions
+        cursor.execute('''
+            SELECT SUM(value) FROM investment_history 
+            WHERE investment_id = ? AND type = 'contribution'
+        ''', (inv_id,))
+        total_invested = cursor.fetchone()[0] or 0
+        
+        investments.append({
+            'id': inv_id,
+            'name': row['name'],
+            'institution': row['institution'],
+            'current_value': current_value,
+            'total_invested': total_invested
+        })
+        
     conn.close()
     return jsonify(investments)
 
@@ -39,8 +84,33 @@ def get_investment(inv_id):
     investment = dict(cursor.fetchone())
     cursor.execute('SELECT * FROM investment_history WHERE investment_id = ? ORDER BY date DESC, id DESC', (inv_id,))
     history = [dict(row) for row in cursor.fetchall()]
+    
+    # Calculate current_value specifically for this asset
+    cursor.execute('''
+        SELECT value, date, id FROM investment_history 
+        WHERE investment_id = ? AND type = 'balance' 
+        ORDER BY date DESC, id DESC LIMIT 1
+    ''', (inv_id,))
+    last_balance_row = cursor.fetchone()
+    
+    if last_balance_row:
+        last_balance = float(last_balance_row['value'])
+        cursor.execute('''
+            SELECT SUM(value) FROM investment_history 
+            WHERE investment_id = ? AND type = 'contribution' 
+            AND (date > ? OR (date = ? AND id > ?))
+        ''', (inv_id, last_balance_row['date'], last_balance_row['date'], last_balance_row['id']))
+        extra_contributions = cursor.fetchone()[0] or 0
+        current_value = last_balance + extra_contributions
+    else:
+        cursor.execute('''
+            SELECT SUM(value) FROM investment_history 
+            WHERE investment_id = ? AND type = 'contribution'
+        ''', (inv_id,))
+        current_value = cursor.fetchone()[0] or 0
+
     conn.close()
-    return jsonify({**investment, 'history': history})
+    return jsonify({**investment, 'history': history, 'current_value': current_value})
 
 @app.route('/api/investments', methods=['POST'])
 def add_investment():
@@ -48,16 +118,25 @@ def add_investment():
     name = data.get('name')
     value = data.get('value')
     institution = data.get('institution', '')
-    
+
     if not name or value is None:
         return jsonify({'error': 'Name and value are required'}), 400
-    
+
     conn = database.get_db_connection()
     cursor = conn.cursor()
     cursor.execute('INSERT INTO investments (name, institution) VALUES (?, ?)', (name, institution))
     inv_id = cursor.lastrowid
-    cursor.execute('INSERT INTO investment_history (investment_id, value, date) VALUES (?, ?, ?)',
-                   (inv_id, value, datetime.now().strftime('%Y-%m-%d')))
+    today = datetime.now()
+    # Initial investment is treated as a contribution
+    cursor.execute('INSERT INTO investment_history (investment_id, value, date, type) VALUES (?, ?, ?, ?)',
+                   (inv_id, value, today.strftime('%Y-%m-%d'), 'contribution'))
+
+    # Also record in monthly contributions
+    cursor.execute('''
+        INSERT INTO monthly_contributions (amount, month_year, date, description)
+        VALUES (?, ?, ?, ?)
+    ''', (value, today.strftime('%Y-%m'), today.strftime('%Y-%m-%d'), f"Saldo inicial: {name}"))
+
     conn.commit()
     conn.close()
     return jsonify({'id': inv_id}), 201
@@ -68,20 +147,67 @@ def update_investment(inv_id):
     name = data.get('name')
     value = data.get('value')
     institution = data.get('institution')
-    
+    action_type = data.get('type', 'balance') # 'contribution' or 'balance'
+
     conn = database.get_db_connection()
     cursor = conn.cursor()
+
     if name:
         cursor.execute('UPDATE investments SET name = ? WHERE id = ?', (name, inv_id))
     if institution is not None:
         cursor.execute('UPDATE investments SET institution = ? WHERE id = ?', (institution, inv_id))
+
     if value is not None:
-        cursor.execute('SELECT value FROM investment_history WHERE investment_id = ? ORDER BY date DESC, id DESC LIMIT 1', (inv_id,))
-        last_val_row = cursor.fetchone()
-        if last_val_row and float(last_val_row['value']) != float(value):
-            cursor.execute('INSERT INTO investment_history (investment_id, value, date) VALUES (?, ?, ?)',
-                           (inv_id, value, datetime.now().strftime('%Y-%m-%d')))
+        today = datetime.now()
+        cursor.execute('SELECT name FROM investments WHERE id = ?', (inv_id,))
+        inv_name = cursor.fetchone()['name']
+
+        if action_type == 'contribution':
+            # Contribution: Just store the contribution amount directly
+            cursor.execute('INSERT INTO investment_history (investment_id, value, date, type) VALUES (?, ?, ?, ?)',
+                           (inv_id, value, today.strftime('%Y-%m-%d'), 'contribution'))
+            
+            cursor.execute('''
+                INSERT INTO monthly_contributions (amount, month_year, date, description)
+                VALUES (?, ?, ?, ?)
+            ''', (value, today.strftime('%Y-%m'), today.strftime('%Y-%m-%d'), f"Aporte: {inv_name}"))
+        else:
+            # Balance update: Only add if value changed from last history entry
+            cursor.execute('SELECT value FROM investment_history WHERE investment_id = ? ORDER BY date DESC, id DESC LIMIT 1', (inv_id,))
+            last_val_row = cursor.fetchone()
+            if last_val_row and float(last_val_row['value']) != float(value):
+                cursor.execute('INSERT INTO investment_history (investment_id, value, date, type) VALUES (?, ?, ?, ?)',
+                               (inv_id, value, today.strftime('%Y-%m-%d'), 'balance'))
+
     conn.commit()
+    conn.close()
+    return jsonify({'status': 'success'})
+@app.route('/api/investments/history/<int:history_id>', methods=['DELETE'])
+def delete_history_entry(history_id):
+    conn = database.get_db_connection()
+    cursor = conn.cursor()
+    
+    # Get details before deleting for cleanup if it's a contribution
+    cursor.execute('''
+        SELECT h.*, i.name as inv_name 
+        FROM investment_history h 
+        JOIN investments i ON h.investment_id = i.id 
+        WHERE h.id = ?
+    ''', (history_id,))
+    entry = cursor.fetchone()
+    
+    if entry:
+        if entry['type'] == 'contribution':
+            # Try to find and delete the corresponding entry in monthly_contributions
+            # We match by amount, description containing the asset name, and the exact date
+            cursor.execute('''
+                DELETE FROM monthly_contributions 
+                WHERE amount = ? AND date = ? AND (description LIKE ? OR description LIKE ?)
+            ''', (entry['value'], entry['date'], f"Aporte: {entry['inv_name']}", f"Saldo inicial: {entry['inv_name']}"))
+        
+        cursor.execute('DELETE FROM investment_history WHERE id = ?', (history_id,))
+        conn.commit()
+    
     conn.close()
     return jsonify({'status': 'success'})
 
@@ -105,26 +231,6 @@ def get_contributions():
     contributions = [dict(row) for row in cursor.fetchall()]
     conn.close()
     return jsonify(contributions)
-
-@app.route('/api/contributions', methods=['POST'])
-def add_contribution():
-    data = request.json
-    amount = data.get('amount')
-    description = data.get('description', '')
-    
-    if not amount:
-        return jsonify({'error': 'Amount is required'}), 400
-    
-    conn = database.get_db_connection()
-    cursor = conn.cursor()
-    today = datetime.now()
-    cursor.execute('''
-        INSERT INTO monthly_contributions (amount, month_year, date, description) 
-        VALUES (?, ?, ?, ?)
-    ''', (amount, today.strftime('%Y-%m'), today.strftime('%Y-%m-%d'), description))
-    conn.commit()
-    conn.close()
-    return jsonify({'status': 'success'}), 201
 
 # --- SETTINGS API ---
 
@@ -180,14 +286,34 @@ def get_metrics():
     else:
         monthly_target = max((total_goal - initial_wealth) / max(target_months, 1), 0)
     
-    # Current Equity: Sum of latest history entries for all assets
-    cursor.execute('''
-        SELECT SUM(current_val) FROM (
-            SELECT (SELECT value FROM investment_history h WHERE h.investment_id = i.id ORDER BY h.date DESC, h.id DESC LIMIT 1) as current_val
-            FROM investments i
-        )
-    ''')
-    current_equity = cursor.fetchone()[0] or 0
+    # Current Equity Calculation (matching get_investments logic)
+    current_equity = 0
+    cursor.execute('SELECT id FROM investments')
+    inv_ids = [r['id'] for r in cursor.fetchall()]
+    
+    for inv_id in inv_ids:
+        cursor.execute('''
+            SELECT value, date, id FROM investment_history 
+            WHERE investment_id = ? AND type = 'balance' 
+            ORDER BY date DESC, id DESC LIMIT 1
+        ''', (inv_id,))
+        last_balance_row = cursor.fetchone()
+        
+        if last_balance_row:
+            last_balance = float(last_balance_row['value'])
+            cursor.execute('''
+                SELECT SUM(value) FROM investment_history 
+                WHERE investment_id = ? AND type = 'contribution' 
+                AND (date > ? OR (date = ? AND id > ?))
+            ''', (inv_id, last_balance_row['date'], last_balance_row['date'], last_balance_row['id']))
+            extra_contributions = cursor.fetchone()[0] or 0
+            current_equity += (last_balance + extra_contributions)
+        else:
+            cursor.execute('''
+                SELECT SUM(value) FROM investment_history 
+                WHERE investment_id = ? AND type = 'contribution'
+            ''', (inv_id,))
+            current_equity += (cursor.fetchone()[0] or 0)
     
     # Invested this month
     this_month = datetime.now().strftime('%Y-%m')
@@ -273,7 +399,7 @@ def get_chart_data():
         temp_wealth = (temp_wealth + pmt) * (1 + r)
 
     actual_equity = [None] * target_months
-    this_month_obj = datetime.now()
+    this_month_obj = datetime.now().replace(day=1)
     for i in range(target_months):
         month_str = this_month_obj.strftime('%Y-%m')
         if month_str in history_points:

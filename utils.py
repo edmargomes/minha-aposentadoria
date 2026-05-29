@@ -35,12 +35,12 @@ def get_months_labels(start_date=None, count=60):
     months = []
     month_names = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"]
     
-    current_date = start_date
+    current_date = start_date.replace(day=1)
     for _ in range(count):
         label = f"{month_names[current_date.month - 1]} {str(current_date.year)[2:]}"
         months.append(label)
         
-        # Move to next month
+        # Move to next month safely
         month = current_date.month
         year = current_date.year
         if month == 12:
