@@ -249,15 +249,14 @@ def save_settings():
     rate = data.get('annual_interest_rate')
     goal = data.get('target_goal')
     months = data.get('target_months')
-    initial_wealth = data.get('initial_wealth', 0)
     
     conn = database.get_db_connection()
     cursor = conn.cursor()
     cursor.execute('''
         UPDATE settings 
-        SET annual_interest_rate = ?, target_goal = ?, target_months = ?, initial_wealth = ? 
+        SET annual_interest_rate = ?, target_goal = ?, target_months = ?, initial_wealth = 0.0
         WHERE id = 1
-    ''', (rate, goal, months, initial_wealth))
+    ''', (rate, goal, months))
     conn.commit()
     conn.close()
     return jsonify({'status': 'success'})
@@ -276,15 +275,15 @@ def get_metrics():
     target_months = int(settings['target_months'])
     initial_wealth = float(settings.get('initial_wealth', 0))
     
-    # Calculate required monthly contribution considering initial wealth
-    # Formula: PMT = (FV - PV(1+r)^n) / [((1+r)^n - 1)/r]
+    # Calculate required monthly contribution
+    # Formula: PMT = (FV) / [((1+r)^n - 1)/r]
     r = (annual_rate / 100) / 12
     if r > 0 and target_months > 0:
-        numerator = total_goal - (initial_wealth * ((1 + r)**target_months))
+        numerator = total_goal
         denominator = ((1 + r)**target_months - 1) / r
         monthly_target = max(numerator / denominator, 0)
     else:
-        monthly_target = max((total_goal - initial_wealth) / max(target_months, 1), 0)
+        monthly_target = max(total_goal / max(target_months, 1), 0)
     
     # Current Equity Calculation (matching get_investments logic)
     current_equity = 0
@@ -320,10 +319,9 @@ def get_metrics():
     cursor.execute('SELECT SUM(amount) FROM monthly_contributions WHERE month_year = ?', (this_month,))
     invested_this_month = cursor.fetchone()[0] or 0
     
-    # Total Invested: Initial Wealth + All monthly contributions
+    # Total Invested: Only sum of monthly contributions
     cursor.execute('SELECT SUM(amount) FROM monthly_contributions')
-    contributions_total = cursor.fetchone()[0] or 0
-    total_invested = initial_wealth + contributions_total
+    total_invested = cursor.fetchone()[0] or 0
     
     profitability = 0
     if total_invested > 0:

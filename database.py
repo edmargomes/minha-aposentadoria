@@ -50,7 +50,7 @@ def init_db():
     # 4. Settings Table
     migrate_table(cursor, 'settings',
         "(id INTEGER PRIMARY KEY CHECK (id = 1), annual_interest_rate DECIMAL(5, 2) NOT NULL DEFAULT 14.0, target_goal DECIMAL(15, 2) NOT NULL DEFAULT 100000.0, target_months INTEGER NOT NULL DEFAULT 60)",
-        [('initial_wealth', 'DECIMAL(15, 2) NOT NULL DEFAULT 0.0')]
+        []
     )
 
     # 5. Milestones Table

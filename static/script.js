@@ -611,7 +611,6 @@ async function openSettingsModal() {
         const response = await fetch('/api/settings');
         const settings = await response.json();
         document.getElementById('setting-goal').value = settings.target_goal;
-        document.getElementById('setting-initial-wealth').value = settings.initial_wealth || 0;
         document.getElementById('setting-rate').value = settings.annual_interest_rate;
         document.getElementById('setting-months').value = settings.target_months;
         document.getElementById('settings-modal').classList.remove('hidden');
@@ -626,11 +625,10 @@ let pendingSettings = null;
 async function saveSettings(e) {
     e.preventDefault();
     const target_goal = parseFloat(document.getElementById('setting-goal').value);
-    const initial_wealth = parseFloat(document.getElementById('setting-initial-wealth').value);
     const annual_interest_rate = parseFloat(document.getElementById('setting-rate').value);
     const target_months = parseInt(document.getElementById('setting-months').value);
     
-    pendingSettings = { target_goal, initial_wealth, annual_interest_rate, target_months };
+    pendingSettings = { target_goal, annual_interest_rate, target_months };
 
     // --- VALIDATION & BEHAVIORAL ALERTS ---
     const confirmModal = document.getElementById('settings-confirm-modal');
@@ -651,11 +649,11 @@ async function saveSettings(e) {
         const r = (annual_interest_rate / 100) / 12;
         let monthly_target = 0;
         if (r > 0 && target_months > 0) {
-            const numerator = target_goal - (initial_wealth * ((1 + r)**target_months));
+            const numerator = target_goal;
             const denominator = ((1 + r)**target_months - 1) / r;
             monthly_target = Math.max(numerator / denominator, 0);
         } else {
-            monthly_target = Math.max((target_goal - initial_wealth) / max(target_months, 1), 0);
+            monthly_target = Math.max(target_goal / max(target_months, 1), 0);
         }
 
         iconContainer.className = "w-16 h-16 rounded-2xl flex items-center justify-center mb-6 mx-auto bg-indigo-50 text-indigo-600";
