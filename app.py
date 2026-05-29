@@ -336,11 +336,26 @@ def get_metrics():
         'current_equity': current_equity,
         'profitability': profitability,
         'total_goal': total_goal,
-        'target_months': target_months,
         'total_invested': total_invested,
         'remaining_amount': max(total_goal - current_equity, 0),
-        'overall_progress': min((current_equity / total_goal) * 100, 100) if total_goal > 0 else 0
+        'overall_progress': min((current_equity / total_goal) * 100, 100) if total_goal > 0 else 0,
+        'target_months': target_months
     }
+
+    # Milestone Tracking
+    progress = metrics['overall_progress']
+    today_str = datetime.now().strftime('%Y-%m-%d')
+    for pct in range(10, 101, 10):
+        if progress >= pct:
+            cursor.execute('INSERT OR IGNORE INTO milestones (percentage, reached_at) VALUES (?, ?)', (pct, today_str))
+
+    cursor.execute('SELECT percentage, reached_at FROM milestones ORDER BY percentage ASC')
+    metrics['milestones'] = [dict(row) for row in cursor.fetchall()]
+
+    # Get start date
+    cursor.execute('SELECT MIN(date) FROM investment_history')
+    metrics['start_date'] = cursor.fetchone()[0] or today_str
+
     conn.close()
     return jsonify(metrics)
 

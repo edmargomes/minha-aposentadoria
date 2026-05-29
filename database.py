@@ -52,6 +52,12 @@ def init_db():
         "(id INTEGER PRIMARY KEY CHECK (id = 1), annual_interest_rate DECIMAL(5, 2) NOT NULL DEFAULT 14.0, target_goal DECIMAL(15, 2) NOT NULL DEFAULT 100000.0, target_months INTEGER NOT NULL DEFAULT 60)",
         [('initial_wealth', 'DECIMAL(15, 2) NOT NULL DEFAULT 0.0')]
     )
+
+    # 5. Milestones Table
+    migrate_table(cursor, 'milestones',
+        "(id INTEGER PRIMARY KEY AUTOINCREMENT, percentage INTEGER NOT NULL, reached_at DATE NOT NULL, UNIQUE(percentage))",
+        []
+    )
     
     # Initialize default settings
     cursor.execute('INSERT OR IGNORE INTO settings (id, annual_interest_rate, target_goal, target_months) VALUES (1, 14.0, 100000.0, 60)')

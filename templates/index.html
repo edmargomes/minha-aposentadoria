@@ -8,107 +8,244 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
-<body class="bg-gray-100 text-gray-800 min-h-screen">
-    <div class="container mx-auto px-4 py-8">
-        <header class="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
-            <h1 class="text-3xl font-bold text-gray-900">Minha Aposentadoria</h1>
-            <div class="flex flex-wrap justify-center gap-3">
-                <button id="btn-settings" class="bg-white hover:bg-gray-50 text-gray-700 font-bold py-2 px-3 rounded-lg border border-gray-200 shadow-sm transition duration-200 flex items-center" title="Configurações">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+<body class="bg-[#f8fafc] text-slate-800 min-h-screen font-sans">
+    <div class="container mx-auto px-4 py-8 max-w-6xl">
+        <header class="flex flex-col md:flex-row justify-between items-center mb-10 gap-4">
+            <div>
+                <h1 class="text-3xl font-black text-slate-900 tracking-tight">Minha Aposentadoria</h1>
+                <p class="text-slate-500 text-sm font-medium">Gestão inteligente de patrimônio</p>
+            </div>
+            <div class="flex items-center gap-3">
+                <button id="btn-settings" class="bg-white hover:bg-slate-50 text-slate-600 p-2.5 rounded-xl border border-slate-200 shadow-sm transition-all duration-200 flex items-center justify-center group" title="Configurações">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 group-hover:rotate-45 transition-transform duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                     </svg>
                 </button>
-                <button id="btn-add-asset" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-sm transition duration-200">
-                    + Novo Ativo
+                <button id="btn-add-asset" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-6 rounded-xl shadow-md shadow-indigo-100 transition-all duration-200 flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
+                    </svg>
+                    Novo Ativo
                 </button>
             </div>
         </header>
 
-        <!-- Dashboard Metrics -->
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-            <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
-                <p class="text-sm text-gray-500 font-medium">Meta mensal de aporte</p>
-                <p id="metric-monthly-target" class="text-2xl font-bold text-gray-900">R$ 0,00</p>
-            </div>
-            <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
-                <p class="text-sm text-gray-500 font-medium">Aportado este mês</p>
-                <div class="flex items-baseline gap-2">
-                    <p id="metric-invested-month" class="text-2xl font-bold text-gray-900">R$ 0,00</p>
-                    <span id="status-month" class="text-xs font-bold px-2 py-1 rounded-full bg-gray-100 text-gray-500">Pendente</span>
+        <!-- Main Metrics Spotlight -->
+        <!-- Main Metrics Spotlight -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8 items-stretch">
+            <!-- Mountain of Dreams (NOW PRIMARY) -->
+            <div class="lg:col-span-2 bg-white rounded-3xl shadow-sm border border-slate-100 flex flex-col relative overflow-hidden h-[450px]">
+                <div class="absolute top-6 left-8 z-10">
+                    <h3 class="text-xl font-black text-slate-800 tracking-tight">Montanha dos Sonhos</h3>
+                    <div class="flex items-center gap-2 mt-1">
+                        <span id="mountain-progress-text" class="text-xs font-black bg-indigo-50 text-indigo-600 px-2 py-1 rounded-lg border border-indigo-100">0%</span>
+                        <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Jornada rumo à liberdade</p>
+                    </div>
                 </div>
-                <div class="w-full bg-gray-200 rounded-full h-2 mt-2">
-                    <div id="month-progress-bar" class="bg-green-600 h-2 rounded-full" style="width: 0%"></div>
+
+                <div class="absolute top-6 right-8 z-10 flex gap-2">
+                    <div class="bg-white/80 backdrop-blur-sm border border-slate-100 p-2 rounded-xl flex flex-col items-center shadow-sm">
+                        <span class="text-[8px] font-black text-slate-400 uppercase">Clima</span>
+                        <span class="text-lg">☀️</span>
+                    </div>
                 </div>
-            </div>
-            <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
-                <p class="text-sm text-gray-500 font-medium">Patrimônio Atual (Saldo)</p>
-                <p id="metric-current-equity" class="text-2xl font-bold text-gray-900">R$ 0,00</p>
-            </div>
-            <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
-                <p class="text-sm text-gray-500 font-medium">Rentabilidade Real</p>
-                <p id="metric-profitability" class="text-2xl font-bold text-gray-900">0.0%</p>
-            </div>
-
-            <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
-                <p id="label-total-goal" class="text-sm text-gray-500 font-medium">Meta Total</p>
-                <p id="metric-total-goal" class="text-2xl font-bold text-gray-900">R$ 0,00</p>
-            </div>
-            <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
-                <p class="text-sm text-gray-500 font-medium">Total Aportado (Histórico)</p>
-                <p id="metric-total-invested" class="text-2xl font-bold text-gray-900">R$ 0,00</p>
-            </div>
-            <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
-                <p class="text-sm text-gray-500 font-medium">Faltam para Meta</p>
-                <p id="metric-remaining-amount" class="text-2xl font-bold text-red-600">R$ 0,00</p>
-            </div>
-            <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
-                <p class="text-sm text-gray-500 font-medium">Progresso da Meta</p>
-                <p id="metric-overall-progress" class="text-2xl font-bold text-blue-600">0.0%</p>
-            </div>
-        </div>
-
-        <!-- Chart Section -->
-        <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 mb-8">
-            <h2 class="text-xl font-bold mb-4">Evolução do Patrimônio</h2>
-            <div class="h-64 md:h-80">
-                <canvas id="evolutionChart"></canvas>
-            </div>
-        </div>
-
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <!-- Asset List (Where the money is) -->
-            <div class="lg:col-span-2">
-                <h2 class="text-2xl font-bold mb-4 flex items-center gap-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                    </svg>
-                    Meus Ativos (Saldo Atual)
-                </h2>
-                <div id="assets-list" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <!-- Asset cards injected here -->
-                    <div id="assets-empty-state" class="col-span-full text-center py-12 bg-white rounded-xl border-2 border-dashed border-gray-200">
-                        <p class="text-gray-500">Cadastre seus ativos para ver o saldo total.</p>
+                
+                <div id="mountain-wrapper" class="relative flex-1 cursor-grab active:cursor-grabbing select-none overflow-hidden group bg-gradient-to-b from-sky-50 to-white">
+                    <canvas id="mountainCanvas" class="w-full h-full"></canvas>
+                    
+                    <!-- Overlay for instructions -->
+                    <div class="absolute bottom-6 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none">
+                        <div class="bg-slate-900/80 backdrop-blur-md text-white text-[10px] font-black px-4 py-2 rounded-full flex items-center gap-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M7 16l-4-4m0 0l4-4m-4 4h18" />
+                            </svg>
+                            ARRASTE PARA EXPLORAR O MAPA
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                            </svg>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Contribution List (Monthly effort) -->
-            <div>
-                <h2 class="text-2xl font-bold mb-4 flex items-center gap-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <!-- Patrimônio Atual (NOW SECONDARY/SIDEBAR) -->
+            <div class="lg:col-span-1 bg-gradient-to-br from-indigo-600 to-violet-700 p-8 rounded-3xl shadow-xl shadow-indigo-100 relative overflow-hidden flex flex-col justify-between">
+                <div class="relative z-10">
+                    <div class="flex justify-between items-start mb-6">
+                        <div>
+                            <p class="text-indigo-100 text-xs font-bold uppercase tracking-widest mb-1 opacity-80">Patrimônio Atual</p>
+                            <h2 id="metric-current-equity" class="text-4xl font-black text-white leading-tight tracking-tighter">R$ 0,00</h2>
+                        </div>
+                        <div class="bg-white/20 backdrop-blur-md p-2 rounded-xl border border-white/10">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                        </div>
+                    </div>
+                    
+                    <div class="space-y-4 pt-6 border-t border-white/10">
+                        <div class="flex justify-between items-center">
+                            <span class="text-indigo-100 text-xs font-medium">Rentabilidade Real</span>
+                            <span id="metric-profitability" class="bg-emerald-400 text-emerald-950 font-black px-2 py-0.5 rounded text-[10px]">0.0%</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-indigo-100 text-xs font-medium">Aportes do Mês</span>
+                            <span id="metric-invested-month" class="text-white font-black text-sm">R$ 0,00</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="relative z-10 mt-8 pt-6 border-t border-white/10">
+                    <div class="flex justify-between items-center mb-3">
+                        <span class="text-indigo-50 text-[10px] font-bold uppercase tracking-wider">Meta Mensal</span>
+                        <span id="metric-monthly-target" class="text-white font-black text-xs">R$ 0,00</span>
+                    </div>
+                    <div class="w-full bg-white/20 rounded-full h-2">
+                        <div id="month-progress-bar" class="bg-emerald-400 h-2 rounded-full shadow-[0_0_8px_rgba(52,211,153,0.6)]" style="width: 0%"></div>
+                    </div>
+                    <p id="status-month" class="text-[8px] text-indigo-200 font-bold mt-2 uppercase text-right tracking-tighter">Pendente</p>
+                </div>
+
+                <!-- Abstract decorations -->
+                <div class="absolute top-0 right-0 -mr-12 -mt-12 w-48 h-48 bg-white/5 rounded-full blur-3xl"></div>
+                <div class="absolute bottom-0 left-0 -ml-12 -mb-12 w-48 h-48 bg-indigo-400/10 rounded-full blur-3xl"></div>
+            </div>
+        </div>
+
+        <div class="bg-white p-8 rounded-3xl shadow-sm border border-slate-100 flex flex-col justify-center relative overflow-hidden group mb-8">
+            <div class="relative z-10">
+                <p id="label-total-goal" class="text-slate-500 font-medium mb-1 text-sm uppercase tracking-wider">Meta Total</p>
+                <h3 id="metric-total-goal" class="text-3xl font-black text-slate-900 mb-4">R$ 0,00</h3>
+                <div class="space-y-4">
+                    <div>
+                        <div class="flex justify-between text-xs mb-1.5">
+                            <span class="text-slate-400 font-bold uppercase">Progresso Global</span>
+                            <span id="metric-overall-progress" class="text-indigo-600 font-black">0.0%</span>
+                        </div>
+                        <div class="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
+                            <div id="overall-progress-bar" class="bg-indigo-600 h-2.5 rounded-full transition-all duration-1000" style="width: 0%"></div>
+                        </div>
+                    </div>
+                    <div class="pt-4 border-t border-slate-50 flex justify-between items-center">
+                        <div>
+                            <p class="text-[10px] text-slate-400 font-bold uppercase mb-1">Faltam para atingir</p>
+                            <p id="metric-remaining-amount" class="text-xl font-black text-rose-500 tracking-tight">R$ 0,00</p>
+                        </div>
+                        <div class="text-right">
+                             <p class="text-[10px] text-slate-400 font-bold uppercase mb-1">Total Aportado</p>
+                             <p id="metric-total-invested-label" class="text-xl font-black text-slate-800 tracking-tight">R$ 0,00</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="absolute top-4 right-4 text-slate-50 group-hover:scale-110 transition-transform duration-500">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-20 w-20" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                </svg>
+            </div>
+        </div>
+
+        <!-- Secondary Metrics Row -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-5">
+                <div class="w-14 h-14 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-600">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
-                    Aportes do Mês
-                </h2>
-                <div id="contributions-list" class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                    <!-- Contributions list injected here -->
-                    <div id="contributions-empty-state" class="p-8 text-center text-gray-500 italic">
-                        Nenhum aporte registrado este mês.
-                    </div>
+                </div>
+                <div>
+                    <p class="text-slate-400 text-[10px] font-bold uppercase tracking-widest">Total Aportado (Histórico)</p>
+                    <p id="metric-total-invested" class="text-2xl font-black text-slate-800">R$ 0,00</p>
+                </div>
+            </div>
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-5">
+                <div class="w-14 h-14 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                    </svg>
+                </div>
+                <div>
+                    <p class="text-slate-400 text-[10px] font-bold uppercase tracking-widest">Patrimônio Líquido (Aportes)</p>
+                    <p id="metric-total-invested-label" class="text-2xl font-black text-slate-800">R$ 0,00</p>
                 </div>
             </div>
         </div>
+
+        <!-- Chart & Main Content -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+            <div class="lg:col-span-2 space-y-8">
+                <!-- Chart Section -->
+                <div class="bg-white p-8 rounded-3xl shadow-sm border border-slate-100">
+                    <div class="flex justify-between items-center mb-8">
+                        <h2 class="text-xl font-black text-slate-800 tracking-tight">Evolução do Patrimônio</h2>
+                        <div class="flex gap-2">
+                            <span class="flex items-center gap-1.5 text-xs font-bold text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-lg border border-indigo-100">
+                                <span class="w-2 h-2 rounded-full bg-indigo-600"></span> Projeção
+                            </span>
+                            <span class="flex items-center gap-1.5 text-xs font-bold text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-100">
+                                <span class="w-2 h-2 rounded-full bg-emerald-600"></span> Real
+                            </span>
+                        </div>
+                    </div>
+                    <div class="h-64 md:h-80">
+                        <canvas id="evolutionChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Asset List -->
+                <div>
+                    <div class="flex justify-between items-end mb-6">
+                        <div>
+                            <h2 class="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+                                <span class="w-2 h-8 bg-indigo-600 rounded-full"></span>
+                                Meus Ativos
+                            </h2>
+                            <p class="text-slate-400 text-sm font-medium ml-4">Distribuição do seu capital</p>
+                        </div>
+                    </div>
+                    <div id="assets-list" class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                        <!-- Asset cards injected here -->
+                        <div id="assets-empty-state" class="col-span-full text-center py-16 bg-white rounded-3xl border-2 border-dashed border-slate-100">
+                            <div class="bg-slate-50 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-300">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                            </div>
+                            <p class="text-slate-500 font-bold">Nenhum ativo cadastrado</p>
+                            <p class="text-slate-400 text-sm mt-1">Comece adicionando seu primeiro investimento.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sidebar: Contribution List -->
+            <div class="space-y-6">
+                <div class="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
+                    <div class="p-6 border-b border-slate-50 bg-slate-50/50">
+                        <h2 class="text-lg font-black text-slate-800 tracking-tight flex items-center gap-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            Aportes do Mês
+                        </h2>
+                    </div>
+                    <div id="contributions-list" class="divide-y divide-slate-50 max-h-[600px] overflow-y-auto">
+                        <!-- Contributions list injected here -->
+                        <div id="contributions-empty-state" class="p-12 text-center">
+                            <p class="text-slate-400 text-sm font-medium italic">Nenhum aporte este mês.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Goal Tip Card -->
+                <div class="bg-indigo-50 p-6 rounded-3xl border border-indigo-100">
+                    <h4 class="font-black text-indigo-900 text-sm mb-2 uppercase tracking-wide">Dica Financeira</h4>
+                    <p class="text-indigo-700 text-xs leading-relaxed">A constância nos aportes é mais importante que o valor em si. Mantenha o foco no longo prazo e na diversificação dos seus ativos.</p>
+                </div>
+            </div>
+        </div>
+    </div>
     </div>
 
     <!-- Modal: Add/Edit Asset -->

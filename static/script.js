@@ -53,30 +53,226 @@ async function updateDashboard() {
         const progressBar = document.getElementById('month-progress-bar');
         const statusMonth = document.getElementById('status-month');
         progressBar.style.width = `${metrics.month_progress}%`;
-        
+
         if (metrics.month_progress >= 100) {
             statusMonth.innerText = 'Meta Atingida';
-            statusMonth.className = 'text-xs font-bold px-2 py-1 rounded-full bg-green-100 text-green-700';
-            progressBar.className = 'bg-green-600 h-2 rounded-full';
+            statusMonth.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-100 uppercase tracking-wider border border-emerald-400/30';
+            progressBar.className = 'bg-emerald-400 h-2.5 rounded-full shadow-[0_0_10px_rgba(52,211,153,0.5)]';
         } else {
             statusMonth.innerText = 'Pendente';
-            statusMonth.className = 'text-xs font-bold px-2 py-1 rounded-full bg-yellow-100 text-yellow-700';
-            progressBar.className = 'bg-yellow-500 h-2 rounded-full';
+            statusMonth.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-400/30 text-white uppercase tracking-wider border border-white/20';
+            progressBar.className = 'bg-indigo-300/50 h-2.5 rounded-full';
         }
 
         document.getElementById('metric-current-equity').innerText = formatCurrency(metrics.current_equity);
         document.getElementById('metric-profitability').innerText = `${metrics.profitability.toFixed(1)}%`;
         document.getElementById('metric-total-invested').innerText = formatCurrency(metrics.total_invested);
+        document.getElementById('metric-total-invested-label').innerText = formatCurrency(metrics.total_invested);
         document.getElementById('metric-remaining-amount').innerText = formatCurrency(metrics.remaining_amount);
         document.getElementById('metric-overall-progress').innerText = `${metrics.overall_progress.toFixed(1)}%`;
-        
+        document.getElementById('overall-progress-bar').style.width = `${metrics.overall_progress}%`;
+
         const years = (metrics.target_months / 12).toFixed(1).replace('.0', '');
-        document.getElementById('label-total-goal').innerText = `Meta Total (${years} anos)`;
         document.getElementById('metric-total-goal').innerText = formatCurrency(metrics.total_goal);
+        
+        // Render Mountain
+        renderMountain(metrics);
+
     } catch (error) {
         console.error('Error updating dashboard:', error);
     }
 }
+
+// --- MOUNTAIN VISUALIZATION (CANVAS REDESIGN) ---
+
+let mountainState = {
+    offsetX: 0,
+    isDragging: false,
+    startX: 0,
+    width: 2500, // Virtual width
+    progress: 0,
+    milestones: [],
+    startDate: null
+};
+
+function initMountainCanvas() {
+    const canvas = document.getElementById('mountainCanvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const wrapper = document.getElementById('mountain-wrapper');
+
+    function resize() {
+        canvas.width = wrapper.clientWidth;
+        canvas.height = wrapper.clientHeight;
+        draw();
+    }
+
+    window.addEventListener('resize', resize);
+    setTimeout(resize, 100);
+
+    // Interaction
+    wrapper.addEventListener('mousedown', (e) => {
+        mountainState.isDragging = true;
+        mountainState.startX = e.clientX - mountainState.offsetX;
+    });
+
+    window.addEventListener('mousemove', (e) => {
+        if (!mountainState.isDragging) return;
+        mountainState.offsetX = e.clientX - mountainState.startX;
+        // Bound checks
+        const minX = -(mountainState.width - canvas.width);
+        mountainState.offsetX = Math.min(0, Math.max(minX, mountainState.offsetX));
+        draw();
+    });
+
+    window.addEventListener('mouseup', () => {
+        mountainState.isDragging = false;
+    });
+
+    function getPathY(x) {
+        const h = canvas.height;
+        // Smooth S-curve path
+        const normalizedX = x / mountainState.width;
+        const curve = (Math.sin(normalizedX * Math.PI - Math.PI/2) + 1) / 2;
+        return h - 80 - curve * (h - 180);
+    }
+
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.save();
+        ctx.translate(mountainState.offsetX, 0);
+
+        // 1. Draw Far Mountains (Subtle)
+        ctx.fillStyle = '#f1f5f9';
+        ctx.beginPath();
+        ctx.moveTo(0, canvas.height);
+        for(let i=0; i<=mountainState.width; i+=100) {
+            ctx.lineTo(i, canvas.height - 150 - Math.sin(i/200)*50);
+        }
+        ctx.lineTo(mountainState.width, canvas.height);
+        ctx.fill();
+
+        // 2. Draw Main Mountain Body
+        const gradient = ctx.createLinearGradient(0, canvas.height, 0, 0);
+        gradient.addColorStop(0, '#f8fafc');
+        gradient.addColorStop(1, '#e2e8f0');
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.moveTo(0, canvas.height);
+        for(let i=0; i<=mountainState.width; i+=20) {
+            ctx.lineTo(i, getPathY(i) + 40);
+        }
+        ctx.lineTo(mountainState.width, canvas.height);
+        ctx.fill();
+
+        // 3. Draw the Path (Sinuous Line)
+        ctx.setLineDash([8, 8]);
+        ctx.strokeStyle = '#cbd5e1';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        for(let i=0; i<=mountainState.width; i+=10) {
+            const y = getPathY(i);
+            if (i === 0) ctx.moveTo(i, y);
+            else ctx.lineTo(i, y);
+        }
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // 4. Draw Milestones/Flags
+        const maxVisiblePct = Math.min(100, Math.floor(mountainState.progress / 10) * 10 + 20);
+        const startDay = new Date(mountainState.startDate + 'T12:00:00');
+
+        for (let pct = 10; pct <= 100; pct += 10) {
+            if (pct > maxVisiblePct && pct > 10) continue;
+
+            const x = (pct / 100) * mountainState.width;
+            const y = getPathY(x);
+            const milestone = mountainState.milestones.find(m => m.percentage === pct);
+            const reached = !!milestone;
+
+            // Flag pole
+            ctx.strokeStyle = reached ? '#6366f1' : '#cbd5e1';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+            ctx.lineTo(x, y - 40);
+            ctx.stroke();
+
+            // Flag cloth
+            ctx.fillStyle = reached ? '#6366f1' : '#f1f5f9';
+            ctx.beginPath();
+            ctx.moveTo(x, y - 40);
+            ctx.lineTo(x + 25, y - 30);
+            ctx.lineTo(x, y - 20);
+            ctx.fill();
+            if(!reached) {
+                ctx.strokeStyle = '#cbd5e1';
+                ctx.stroke();
+            }
+
+            // Labels
+            ctx.fillStyle = reached ? '#4338ca' : '#94a3b8';
+            ctx.font = '900 12px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(`${pct}%`, x, y + 25);
+
+            if (reached) {
+                const reachedDay = new Date(milestone.reached_at + 'T12:00:00');
+                const diffDays = Math.ceil(Math.abs(reachedDay - startDay) / (1000 * 60 * 60 * 24));
+                ctx.fillStyle = '#10b981';
+                ctx.font = 'bold 9px sans-serif';
+                ctx.fillText(`${diffDays} dias`, x, y + 38);
+            }
+        }
+
+        // 5. Draw the Climber
+        const climberX = (mountainState.progress / 100) * mountainState.width;
+        const climberY = getPathY(climberX);
+        
+        // Climber Glow
+        const glow = ctx.createRadialGradient(climberX, climberY, 0, climberX, climberY, 30);
+        glow.addColorStop(0, 'rgba(99, 102, 241, 0.2)');
+        glow.addColorStop(1, 'transparent');
+        ctx.fillStyle = glow;
+        ctx.beginPath();
+        ctx.arc(climberX, climberY, 30, 0, Math.PI*2);
+        ctx.fill();
+
+        // Climber Emoji (simple but effective for "bonequinho")
+        ctx.font = '24px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('🧗‍♂️', climberX, climberY - 15);
+
+        ctx.restore();
+    }
+
+    return draw;
+}
+
+let drawMountain = null;
+
+function renderMountain(metrics) {
+    if (!drawMountain) drawMountain = initMountainCanvas();
+    
+    mountainState.progress = metrics.overall_progress;
+    mountainState.milestones = metrics.milestones;
+    mountainState.startDate = metrics.start_date;
+    
+    document.getElementById('mountain-progress-text').innerText = `${mountainState.progress.toFixed(1)}%`;
+    
+    // Auto-scroll logic (only once)
+    const canvas = document.getElementById('mountainCanvas');
+    if (canvas && !canvas.dataset.initialScrolled) {
+        const climberX = (mountainState.progress / 100) * mountainState.width;
+        mountainState.offsetX = Math.min(0, Math.max(-(mountainState.width - canvas.width), -(climberX - canvas.width/2)));
+        canvas.dataset.initialScrolled = "true";
+    }
+
+    if (drawMountain) drawMountain();
+}
+
+// --- ASSETS (PATRIMONY) ---
 
 // --- ASSETS (PATRIMONY) ---
 
@@ -106,28 +302,38 @@ async function updateAssetsList() {
 
 function createAssetCard(asset) {
     const div = document.createElement('div');
-    div.className = 'asset-card bg-white p-4 rounded-xl shadow-sm border border-gray-200 cursor-pointer hover:shadow-md transition duration-200';
+    div.className = 'asset-card bg-white p-5 rounded-2xl shadow-sm border border-slate-100 cursor-pointer hover:shadow-md hover:border-indigo-200 transition-all duration-300';
     div.onclick = () => openAssetModal(asset.id);
     
     let yieldHtml = '';
     if (asset.total_invested !== null) {
         const yieldAmount = asset.current_value - asset.total_invested;
-        const colorClass = yieldAmount > 0 ? 'text-green-600' : (yieldAmount < 0 ? 'text-red-600' : 'hidden');
+        const colorClass = yieldAmount > 0 ? 'text-emerald-600 bg-emerald-50' : (yieldAmount < 0 ? 'text-rose-600 bg-rose-50' : 'hidden');
         const icon = yieldAmount > 0 ? '↑' : '↓';
         if (Math.abs(yieldAmount) > 0.01) {
-            yieldHtml = `<span class="${colorClass} text-xs font-bold flex items-center gap-1">${icon} ${formatCurrency(Math.abs(yieldAmount))}</span>`;
+            yieldHtml = `
+                <span class="${colorClass} text-[10px] font-black px-2 py-1 rounded-lg flex items-center gap-1 border border-current opacity-80">
+                    ${icon} ${formatCurrency(Math.abs(yieldAmount))}
+                </span>`;
         }
     }
 
     div.innerHTML = `
-        <div class="flex justify-between items-start mb-2">
-            <div>
-                <h3 class="font-bold text-gray-900 leading-tight">${asset.name}</h3>
-                <p class="text-xs text-gray-400">${asset.institution || 'Geral'}</p>
+        <div class="flex justify-between items-start mb-4">
+            <div class="max-w-[70%]">
+                <h3 class="font-black text-slate-800 leading-tight truncate text-sm uppercase tracking-tight">${asset.name}</h3>
+                <p class="text-[10px] text-slate-400 font-bold uppercase mt-0.5">${asset.institution || 'Geral'}</p>
             </div>
             ${yieldHtml}
         </div>
-        <p class="text-xl font-black text-gray-800">${formatCurrency(asset.current_value)}</p>
+        <div class="flex items-end justify-between">
+            <p class="text-2xl font-black text-slate-900 tracking-tighter">${formatCurrency(asset.current_value)}</p>
+            <div class="w-8 h-8 bg-slate-50 rounded-lg flex items-center justify-center text-slate-300 group-hover:text-indigo-600 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+            </div>
+        </div>
     `;
     return div;
 }
@@ -360,35 +566,38 @@ async function initChart() {
                 labels: data.labels,
                 datasets: [
                     {
-                        label: 'Projeção Ideal (Meta)',
+                        label: 'Projeção Ideal',
                         data: data.ideal_projection,
-                        borderColor: '#378ADD',
-                        backgroundColor: 'rgba(55, 138, 221, 0.05)',
-                        borderWidth: 2,
+                        borderColor: '#6366f1',
+                        backgroundColor: 'rgba(99, 102, 241, 0.05)',
+                        borderWidth: 3,
                         pointRadius: 0,
-                        tension: 0.3,
-                        fill: true
+                        fill: true,
+                        tension: 0.4,
+                        borderDash: [5, 5]
                     },
                     {
-                        label: 'Expectativa de Saldo',
+                        label: 'Meta de Patrimônio',
                         data: data.wealth_projection,
-                        borderColor: '#f59e0b', // Amber/Orange
+                        borderColor: '#818cf8',
                         borderWidth: 2,
-                        borderDash: [5, 5], // Dashed line
                         pointRadius: 0,
-                        tension: 0.3,
-                        fill: false
+                        fill: false,
+                        tension: 0.4,
+                        borderDash: [2, 2]
                     },
                     {
-                        label: 'Patrimônio Real (Atualizado)',
+                        label: 'Realidade (Saldo Atual)',
                         data: data.actual_equity,
                         borderColor: '#10b981',
                         backgroundColor: '#10b981',
                         borderWidth: 4,
-                        pointRadius: 6,
-                        pointHoverRadius: 8,
-                        spanGaps: true,
-                        showLine: true
+                        pointRadius: 4,
+                        pointBackgroundColor: '#fff',
+                        pointBorderWidth: 2,
+                        fill: false,
+                        tension: 0.4,
+                        spanGaps: true
                     }
                 ]
             },
@@ -396,12 +605,34 @@ async function initChart() {
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: {
-                    legend: { position: 'top', labels: { usePointStyle: true, padding: 20 } },
-                    tooltip: { mode: 'index', intersect: false, callbacks: { label: (c) => `${c.dataset.label}: ${formatCurrency(c.parsed.y)}` } }
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: '#1e293b',
+                        padding: 12,
+                        titleFont: { size: 14, weight: 'bold' },
+                        bodyFont: { size: 13 },
+                        cornerRadius: 8,
+                        displayColors: true,
+                        callbacks: { label: (c) => `${c.dataset.label}: ${formatCurrency(c.parsed.y)}` }
+                    }
                 },
                 scales: {
-                    y: { beginAtZero: true, ticks: { callback: (v) => v >= 1000 ? `R$ ${v/1000}k` : `R$ ${v}` } },
-                    x: { grid: { display: false } }
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: '#f1f5f9', drawBorder: false },
+                        ticks: {
+                            color: '#94a3b8',
+                            font: { size: 10, weight: 'bold' },
+                            callback: (v) => v >= 1000 ? `R$ ${v/1000}k` : `R$ ${v}`
+                        }
+                    },
+                    x: {
+                        grid: { display: false },
+                        ticks: {
+                            color: '#94a3b8',
+                            font: { size: 10, weight: 'bold' }
+                        }
+                    }
                 }
             }
         });
