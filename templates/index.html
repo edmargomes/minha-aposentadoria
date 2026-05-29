@@ -330,6 +330,30 @@
         </div>
     </div>
 
+    <!-- Modal: Settings Confirmation (NEW) -->
+    <div id="settings-confirm-modal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
+        <div class="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-100">
+            <div class="p-8">
+                <div id="confirm-icon-container" class="w-16 h-16 rounded-2xl flex items-center justify-center mb-6 mx-auto">
+                    <!-- Icon injected by JS -->
+                </div>
+                <h3 id="confirm-title" class="text-xl font-black text-slate-900 text-center mb-4">Validando seu Plano</h3>
+                <div id="confirm-message" class="text-slate-600 text-sm leading-relaxed text-center mb-8">
+                    <!-- Message injected by JS -->
+                </div>
+                
+                <div class="grid grid-cols-2 gap-4">
+                    <button type="button" id="btn-confirm-adjust" class="px-6 py-3 rounded-xl border border-slate-200 text-slate-600 font-bold hover:bg-slate-50 transition-all">
+                        Quero Ajustar
+                    </button>
+                    <button type="button" id="btn-confirm-proceed" class="px-6 py-3 rounded-xl bg-indigo-600 text-white font-black hover:bg-indigo-700 shadow-lg shadow-indigo-100 transition-all">
+                        Continuar Assim
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
 </html>

@@ -620,6 +620,9 @@ async function openSettingsModal() {
 
 function closeSettingsModal() { document.getElementById('settings-modal').classList.add('hidden'); }
 
+// Global variable to store pending settings during validation
+let pendingSettings = null;
+
 async function saveSettings(e) {
     e.preventDefault();
     const target_goal = parseFloat(document.getElementById('setting-goal').value);
@@ -627,15 +630,64 @@ async function saveSettings(e) {
     const annual_interest_rate = parseFloat(document.getElementById('setting-rate').value);
     const target_months = parseInt(document.getElementById('setting-months').value);
     
+    pendingSettings = { target_goal, initial_wealth, annual_interest_rate, target_months };
+
+    // --- VALIDATION & BEHAVIORAL ALERTS ---
+    const confirmModal = document.getElementById('settings-confirm-modal');
+    const msgDiv = document.getElementById('confirm-message');
+    const iconContainer = document.getElementById('confirm-icon-container');
+    const title = document.getElementById('confirm-title');
+
+    if (target_months > 60) {
+        // ALERT 1: Long duration (> 5 years)
+        iconContainer.className = "w-16 h-16 rounded-2xl flex items-center justify-center mb-6 mx-auto bg-amber-50 text-amber-500";
+        iconContainer.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>`;
+        title.innerText = "Prazo Muito Longo";
+        msgDiv.innerHTML = `Você colocou <span class="font-black text-slate-900">${target_months} meses</span> para alcançar sua meta. O ideal é que seja no máximo <span class="font-black text-indigo-600">60 meses (5 anos)</span>.<br><br>Prazos muito longos geram uma percepção de progresso lenta no cérebro, o que pode causar desânimo. Quer continuar ou prefere ajustar para um prazo mais curto?`;
+        
+        confirmModal.classList.remove('hidden');
+    } else {
+        // ALERT 2: Financial Realism Check
+        const r = (annual_interest_rate / 100) / 12;
+        let monthly_target = 0;
+        if (r > 0 && target_months > 0) {
+            const numerator = target_goal - (initial_wealth * ((1 + r)**target_months));
+            const denominator = ((1 + r)**target_months - 1) / r;
+            monthly_target = Math.max(numerator / denominator, 0);
+        } else {
+            monthly_target = Math.max((target_goal - initial_wealth) / max(target_months, 1), 0);
+        }
+
+        iconContainer.className = "w-16 h-16 rounded-2xl flex items-center justify-center mb-6 mx-auto bg-indigo-50 text-indigo-600";
+        iconContainer.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>`;
+        title.innerText = "Validando Aporte Mensal";
+        msgDiv.innerHTML = `Para atingir <span class="font-black text-slate-900">${formatCurrency(target_goal)}</span> em ${target_months} meses, você precisará investir <span class="font-black text-emerald-600">${formatCurrency(monthly_target)} por mês</span>.<br><br>Este valor é realista para você hoje? Se não for, o ideal é diminuir sua meta agora e aumentá-la depois que atingir o primeiro degrau. Deseja continuar?`;
+        
+        confirmModal.classList.remove('hidden');
+    }
+}
+
+// Event Listeners for the Confirmation Modal
+document.getElementById('btn-confirm-adjust').onclick = () => {
+    document.getElementById('settings-confirm-modal').classList.add('hidden');
+    // Keep settings modal open for adjustment
+};
+
+document.getElementById('btn-confirm-proceed').onclick = async () => {
+    if (!pendingSettings) return;
     try {
         const response = await fetch('/api/settings', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ target_goal, initial_wealth, annual_interest_rate, target_months })
+            body: JSON.stringify(pendingSettings)
         });
-        if (response.ok) { closeSettingsModal(); initApp(); }
+        if (response.ok) { 
+            document.getElementById('settings-confirm-modal').classList.add('hidden');
+            closeSettingsModal(); 
+            initApp(); 
+        }
     } catch (error) { console.error(error); }
-}
+};
 
 // --- CHART ---
 
