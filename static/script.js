@@ -46,8 +46,7 @@ async function updateDashboard() {
     try {
         const response = await fetch('/api/dashboard/metrics');
         const metrics = await response.json();
-        
-        document.getElementById('metric-monthly-target').innerText = formatCurrency(metrics.monthly_target);
+
         document.getElementById('metric-invested-month').innerText = formatCurrency(metrics.invested_this_month);
         
         const progressBar = document.getElementById('month-progress-bar');
@@ -56,23 +55,23 @@ async function updateDashboard() {
 
         if (metrics.month_progress >= 100) {
             statusMonth.innerText = 'Meta Atingida';
-            statusMonth.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-100 uppercase tracking-wider border border-emerald-400/30';
-            progressBar.className = 'bg-emerald-400 h-2.5 rounded-full shadow-[0_0_10px_rgba(52,211,153,0.5)]';
+            statusMonth.className = 'text-[8px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-100 uppercase tracking-wider border border-emerald-400/30';
+            progressBar.className = 'bg-emerald-400 h-2 rounded-full shadow-[0_0_10px_rgba(52,211,153,0.5)]';
         } else {
             statusMonth.innerText = 'Pendente';
-            statusMonth.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-400/30 text-white uppercase tracking-wider border border-white/20';
-            progressBar.className = 'bg-indigo-300/50 h-2.5 rounded-full';
+            statusMonth.className = 'text-[8px] text-indigo-200 font-bold mt-2 uppercase text-right tracking-tighter';
+            progressBar.className = 'bg-indigo-300/50 h-2 rounded-full';
         }
 
         document.getElementById('metric-current-equity').innerText = formatCurrency(metrics.current_equity);
         document.getElementById('metric-profitability').innerText = `${metrics.profitability.toFixed(1)}%`;
-        document.getElementById('metric-total-invested').innerText = formatCurrency(metrics.total_invested);
         document.getElementById('metric-total-invested-label').innerText = formatCurrency(metrics.total_invested);
         document.getElementById('metric-remaining-amount').innerText = formatCurrency(metrics.remaining_amount);
         document.getElementById('metric-overall-progress').innerText = `${metrics.overall_progress.toFixed(1)}%`;
         document.getElementById('overall-progress-bar').style.width = `${metrics.overall_progress}%`;
 
         const years = (metrics.target_months / 12).toFixed(1).replace('.0', '');
+        document.getElementById('label-total-goal').innerText = `Meta Total (${years} anos)`;
         document.getElementById('metric-total-goal').innerText = formatCurrency(metrics.total_goal);
         
         // Render Mountain
@@ -87,12 +86,19 @@ async function updateDashboard() {
 
 let mountainState = {
     offsetX: 0,
+    offsetY: 0,
     isDragging: false,
     startX: 0,
-    width: 2500, // Virtual width
+    startY: 0,
+    width: 3000,
+    height: 1000, 
     progress: 0,
     milestones: [],
-    startDate: null
+    journeyEvents: [], // Persistent marks
+    currentWeather: 'sunny',
+    startDate: null,
+    zoom: 1.5,
+    metrics: null
 };
 
 function initMountainCanvas() {
@@ -114,14 +120,22 @@ function initMountainCanvas() {
     wrapper.addEventListener('mousedown', (e) => {
         mountainState.isDragging = true;
         mountainState.startX = e.clientX - mountainState.offsetX;
+        mountainState.startY = e.clientY - mountainState.offsetY;
+        canvas.dataset.initialScrolled = "true"; 
     });
 
     window.addEventListener('mousemove', (e) => {
         if (!mountainState.isDragging) return;
+        
         mountainState.offsetX = e.clientX - mountainState.startX;
-        // Bound checks
-        const minX = -(mountainState.width - canvas.width);
+        mountainState.offsetY = e.clientY - mountainState.startY;
+        
+        const minX = -(mountainState.width * mountainState.zoom - canvas.width);
+        const minY = -(mountainState.height * mountainState.zoom - canvas.height);
+        
         mountainState.offsetX = Math.min(0, Math.max(minX, mountainState.offsetX));
+        mountainState.offsetY = Math.min(0, Math.max(minY, mountainState.offsetY));
+        
         draw();
     });
 
@@ -130,47 +144,72 @@ function initMountainCanvas() {
     });
 
     function getPathY(x) {
-        const h = canvas.height;
-        // Smooth S-curve path
         const normalizedX = x / mountainState.width;
-        const curve = (Math.sin(normalizedX * Math.PI - Math.PI/2) + 1) / 2;
-        return h - 80 - curve * (h - 180);
+        const peakPos = 0.9;
+        
+        if (normalizedX <= peakPos) {
+            const progressOnSlope = normalizedX / peakPos;
+            const curve = Math.pow(progressOnSlope, 1.3);
+            return mountainState.height - 150 - curve * (mountainState.height - 350);
+        } else {
+            return mountainState.height - 150 - 1.0 * (mountainState.height - 350);
+        }
     }
 
     function draw() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.save();
-        ctx.translate(mountainState.offsetX, 0);
-
-        // 1. Draw Far Mountains (Subtle)
-        ctx.fillStyle = '#f1f5f9';
-        ctx.beginPath();
-        ctx.moveTo(0, canvas.height);
-        for(let i=0; i<=mountainState.width; i+=100) {
-            ctx.lineTo(i, canvas.height - 150 - Math.sin(i/200)*50);
+        
+        const peakWidth = mountainState.width * 0.9;
+        const climberX = (mountainState.progress / 100) * peakWidth;
+        const climberY = getPathY(climberX);
+        
+        if (!canvas.dataset.initialScrolled) {
+            const targetX = -(climberX * mountainState.zoom - canvas.width / 2);
+            const targetY = -(climberY * mountainState.zoom - canvas.height / 2);
+            const minX = -(mountainState.width * mountainState.zoom - canvas.width);
+            const minY = -(mountainState.height * mountainState.zoom - canvas.height);
+            mountainState.offsetX = Math.min(0, Math.max(minX, targetX));
+            mountainState.offsetY = Math.min(0, Math.max(minY, targetY));
         }
-        ctx.lineTo(mountainState.width, canvas.height);
+
+        ctx.save();
+        ctx.translate(mountainState.offsetX, mountainState.offsetY);
+        ctx.scale(mountainState.zoom, mountainState.zoom);
+
+        // 1. Draw Far Mountains
+        ctx.fillStyle = mountainState.currentWeather === 'stormy' ? '#e2e8f0' : '#f1f5f9';
+        ctx.beginPath();
+        ctx.moveTo(0, mountainState.height);
+        for(let i=0; i<=mountainState.width; i+=100) {
+            ctx.lineTo(i, mountainState.height - 300 - Math.sin(i/300)*120);
+        }
+        ctx.lineTo(mountainState.width, mountainState.height);
         ctx.fill();
 
-        // 2. Draw Main Mountain Body
-        const gradient = ctx.createLinearGradient(0, canvas.height, 0, 0);
-        gradient.addColorStop(0, '#f8fafc');
-        gradient.addColorStop(1, '#e2e8f0');
+        // 2. Main Mountain
+        const gradient = ctx.createLinearGradient(0, mountainState.height, 0, 0);
+        if (mountainState.currentWeather === 'stormy') {
+            gradient.addColorStop(0, '#f1f5f9');
+            gradient.addColorStop(1, '#94a3b8');
+        } else {
+            gradient.addColorStop(0, '#f8fafc');
+            gradient.addColorStop(1, '#e2e8f0');
+        }
         ctx.fillStyle = gradient;
         ctx.beginPath();
-        ctx.moveTo(0, canvas.height);
+        ctx.moveTo(0, mountainState.height);
         for(let i=0; i<=mountainState.width; i+=20) {
-            ctx.lineTo(i, getPathY(i) + 40);
+            ctx.lineTo(i, getPathY(i) + 120);
         }
-        ctx.lineTo(mountainState.width, canvas.height);
+        ctx.lineTo(mountainState.width, mountainState.height);
         ctx.fill();
 
-        // 3. Draw the Path (Sinuous Line)
+        // 3. Path
         ctx.setLineDash([8, 8]);
-        ctx.strokeStyle = '#cbd5e1';
-        ctx.lineWidth = 3;
+        ctx.strokeStyle = mountainState.currentWeather === 'stormy' ? '#64748b' : '#cbd5e1';
+        ctx.lineWidth = 2;
         ctx.beginPath();
-        for(let i=0; i<=mountainState.width; i+=10) {
+        for(let i=0; i<=peakWidth; i+=10) {
             const y = getPathY(i);
             if (i === 0) ctx.moveTo(i, y);
             else ctx.lineTo(i, y);
@@ -178,71 +217,106 @@ function initMountainCanvas() {
         ctx.stroke();
         ctx.setLineDash([]);
 
-        // 4. Draw Milestones/Flags
-        const maxVisiblePct = Math.min(100, Math.floor(mountainState.progress / 10) * 10 + 20);
+        // 4. Journey Events (Persistent marks)
+        mountainState.journeyEvents.forEach(evt => {
+            const ex = (evt.percentage / 100) * peakWidth;
+            const ey = getPathY(ex);
+            ctx.font = '16px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(evt.type === 'storm' ? '⛈️' : '⛅', ex, ey - 10);
+        });
+
+        // 5. Milestones
+        const metrics = mountainState.metrics;
         const startDay = new Date(mountainState.startDate + 'T12:00:00');
+        const nextPct = Math.ceil((mountainState.progress + 0.1) / 10) * 10;
 
         for (let pct = 10; pct <= 100; pct += 10) {
-            if (pct > maxVisiblePct && pct > 10) continue;
-
-            const x = (pct / 100) * mountainState.width;
+            const x = (pct / 100) * peakWidth;
             const y = getPathY(x);
             const milestone = mountainState.milestones.find(m => m.percentage === pct);
             const reached = !!milestone;
+            const isNext = pct === nextPct && !reached;
+            const isFinal = pct === 100;
 
-            // Flag pole
-            ctx.strokeStyle = reached ? '#6366f1' : '#cbd5e1';
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.moveTo(x, y);
-            ctx.lineTo(x, y - 40);
-            ctx.stroke();
-
-            // Flag cloth
-            ctx.fillStyle = reached ? '#6366f1' : '#f1f5f9';
-            ctx.beginPath();
-            ctx.moveTo(x, y - 40);
-            ctx.lineTo(x + 25, y - 30);
-            ctx.lineTo(x, y - 20);
-            ctx.fill();
-            if(!reached) {
-                ctx.strokeStyle = '#cbd5e1';
+            if (isFinal) {
+                const colors = ['#f59e0b', '#6366f1', '#f59e0b'];
+                [-20, 0, 20].forEach((offset, idx) => {
+                    const fx = x + offset;
+                    const fy = y;
+                    ctx.strokeStyle = reached ? colors[idx] : '#cbd5e1';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.moveTo(fx, fy);
+                    ctx.lineTo(fx, fy - (idx === 1 ? 50 : 35));
+                    ctx.stroke();
+                    ctx.fillStyle = reached ? colors[idx] : '#f1f5f9';
+                    ctx.beginPath();
+                    ctx.moveTo(fx, fy - (idx === 1 ? 50 : 35));
+                    ctx.lineTo(fx + (idx === 1 ? 25 : 15), fy - (idx === 1 ? 40 : 28));
+                    ctx.lineTo(fx, fy - (idx === 1 ? 30 : 20));
+                    ctx.fill();
+                });
+                ctx.fillStyle = reached ? '#b45309' : '#94a3b8';
+                ctx.font = '900 14px sans-serif';
+                ctx.fillText('LIBERDADE!', x, y + 30);
+            } else {
+                ctx.strokeStyle = reached ? '#6366f1' : (isNext ? '#818cf8' : '#cbd5e1');
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.moveTo(x, y);
+                ctx.lineTo(x, y - 30);
                 ctx.stroke();
+                ctx.fillStyle = reached ? '#6366f1' : (isNext ? 'rgba(99, 102, 241, 0.4)' : '#f1f5f9');
+                ctx.beginPath();
+                ctx.moveTo(x, y - 30);
+                ctx.lineTo(x + 15, y - 22);
+                ctx.lineTo(x, y - 15);
+                ctx.fill();
+                ctx.fillStyle = reached ? '#4338ca' : (isNext ? '#6366f1' : '#94a3b8');
+                ctx.font = '900 10px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(`${pct}%`, x, y + 20);
             }
-
-            // Labels
-            ctx.fillStyle = reached ? '#4338ca' : '#94a3b8';
-            ctx.font = '900 12px sans-serif';
-            ctx.textAlign = 'center';
-            ctx.fillText(`${pct}%`, x, y + 25);
 
             if (reached) {
                 const reachedDay = new Date(milestone.reached_at + 'T12:00:00');
                 const diffDays = Math.ceil(Math.abs(reachedDay - startDay) / (1000 * 60 * 60 * 24));
                 ctx.fillStyle = '#10b981';
-                ctx.font = 'bold 9px sans-serif';
-                ctx.fillText(`${diffDays} dias`, x, y + 38);
+                ctx.font = 'bold 7px sans-serif';
+                ctx.fillText(`${diffDays} dias`, x, y + (isFinal ? 45 : 30));
+            } else if (isNext && metrics) {
+                const targetValue = metrics.total_goal * (pct / 100);
+                const PV = metrics.current_equity;
+                const PMT = metrics.monthly_target || 1; 
+                const r = (metrics.annual_rate / 100) / 12;
+                let months = 0;
+                if (targetValue > PV) {
+                    if (r > 0) {
+                        months = Math.log((targetValue * r + PMT) / (PV * r + PMT)) / Math.log(1 + r);
+                    } else {
+                        months = (targetValue - PV) / PMT;
+                    }
+                }
+                const timeText = months > 12 ? `~${(months/12).toFixed(1)} anos` : `~${Math.ceil(months)} meses`;
+                ctx.fillStyle = '#6366f1';
+                ctx.font = 'bold 7px sans-serif';
+                ctx.fillText(timeText, x, y + 30);
             }
         }
 
-        // 5. Draw the Climber
-        const climberX = (mountainState.progress / 100) * mountainState.width;
-        const climberY = getPathY(climberX);
-        
-        // Climber Glow
-        const glow = ctx.createRadialGradient(climberX, climberY, 0, climberX, climberY, 30);
-        glow.addColorStop(0, 'rgba(99, 102, 241, 0.2)');
+        // 6. Climber
+        const glow = ctx.createRadialGradient(climberX, climberY, 0, climberX, climberY, 20);
+        glow.addColorStop(0, mountainState.currentWeather === 'stormy' ? 'rgba(148, 163, 184, 0.4)' : 'rgba(99, 102, 241, 0.3)');
         glow.addColorStop(1, 'transparent');
         ctx.fillStyle = glow;
         ctx.beginPath();
-        ctx.arc(climberX, climberY, 30, 0, Math.PI*2);
+        ctx.arc(climberX, climberY, 20, 0, Math.PI*2);
         ctx.fill();
-
-        // Climber Emoji (simple but effective for "bonequinho")
-        ctx.font = '24px sans-serif';
+        ctx.font = '20px sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText('🧗‍♂️', climberX, climberY - 15);
+        ctx.fillText(mountainState.currentWeather === 'stormy' ? '🧗' : '🧗‍♂️', climberX, climberY - 10);
 
         ctx.restore();
     }
@@ -257,22 +331,34 @@ function renderMountain(metrics) {
     
     mountainState.progress = metrics.overall_progress;
     mountainState.milestones = metrics.milestones;
+    mountainState.journeyEvents = metrics.journey_events || [];
+    mountainState.currentWeather = metrics.current_weather || 'sunny';
     mountainState.startDate = metrics.start_date;
+    mountainState.metrics = metrics;
     
     document.getElementById('mountain-progress-text').innerText = `${mountainState.progress.toFixed(1)}%`;
     
-    // Auto-scroll logic (only once)
-    const canvas = document.getElementById('mountainCanvas');
-    if (canvas && !canvas.dataset.initialScrolled) {
-        const climberX = (mountainState.progress / 100) * mountainState.width;
-        mountainState.offsetX = Math.min(0, Math.max(-(mountainState.width - canvas.width), -(climberX - canvas.width/2)));
-        canvas.dataset.initialScrolled = "true";
+    // Update weather widget
+    const weatherIcon = document.getElementById('weather-icon');
+    const weatherLabel = document.getElementById('weather-label');
+    if (weatherIcon && weatherLabel) {
+        if (mountainState.currentWeather === 'stormy') {
+            weatherIcon.innerText = '⛈️';
+            weatherLabel.innerText = 'Tempestade';
+            weatherLabel.className = 'text-[8px] font-black text-rose-500 uppercase';
+        } else if (mountainState.currentWeather === 'cloudy') {
+            weatherIcon.innerText = '⛅';
+            weatherLabel.innerText = 'Nublado';
+            weatherLabel.className = 'text-[8px] font-black text-amber-500 uppercase';
+        } else {
+            weatherIcon.innerText = '☀️';
+            weatherLabel.innerText = 'Sol';
+            weatherLabel.className = 'text-[8px] font-black text-emerald-500 uppercase';
+        }
     }
-
+    
     if (drawMountain) drawMountain();
 }
-
-// --- ASSETS (PATRIMONY) ---
 
 // --- ASSETS (PATRIMONY) ---
 
@@ -467,10 +553,10 @@ async function saveAsset(e) {
 
 async function deleteAsset() {
     const id = document.getElementById('asset-id').value;
-    if (confirm('Deseja excluir este ativo?')) {
+    if (confirm('Deseja excluir este ativo e todo o seu histórico?')) {
         try {
-            await fetch(`/api/investments/${id}`, { method: 'DELETE' });
-            closeAssetModal(); initApp();
+            const response = await fetch(`/api/investments/${id}`, { method: 'DELETE' });
+            if (response.ok) { closeAssetModal(); initApp(); }
         } catch (error) { console.error(error); }
     }
 }

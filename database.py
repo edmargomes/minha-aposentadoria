@@ -58,6 +58,18 @@ def init_db():
         "(id INTEGER PRIMARY KEY AUTOINCREMENT, percentage INTEGER NOT NULL, reached_at DATE NOT NULL, UNIQUE(percentage))",
         []
     )
+
+    # 6. Journey Events (Weather Marks)
+    migrate_table(cursor, 'journey_events',
+        "(id INTEGER PRIMARY KEY AUTOINCREMENT, percentage REAL NOT NULL, type TEXT NOT NULL, date DATE NOT NULL)",
+        []
+    )
+
+    # 7. Daily Snapshots (for delta calculation)
+    migrate_table(cursor, 'daily_snapshots',
+        "(date DATE PRIMARY KEY, equity DECIMAL(15, 2) NOT NULL, total_invested DECIMAL(15, 2) NOT NULL)",
+        []
+    )
     
     # Initialize default settings
     cursor.execute('INSERT OR IGNORE INTO settings (id, annual_interest_rate, target_goal, target_months) VALUES (1, 14.0, 100000.0, 60)')

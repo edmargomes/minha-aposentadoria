@@ -339,7 +339,8 @@ def get_metrics():
         'total_invested': total_invested,
         'remaining_amount': max(total_goal - current_equity, 0),
         'overall_progress': min((current_equity / total_goal) * 100, 100) if total_goal > 0 else 0,
-        'target_months': target_months
+        'target_months': target_months,
+        'annual_rate': annual_rate
     }
 
     # Milestone Tracking
@@ -348,10 +349,46 @@ def get_metrics():
     for pct in range(10, 101, 10):
         if progress >= pct:
             cursor.execute('INSERT OR IGNORE INTO milestones (percentage, reached_at) VALUES (?, ?)', (pct, today_str))
+    
+    # --- WEATHER & JOURNEY SYSTEM ---
+    # 1. Get yesterday's snapshot or earliest available
+    cursor.execute('SELECT * FROM daily_snapshots WHERE date < ? ORDER BY date DESC LIMIT 1', (today_str,))
+    prev_snapshot = cursor.fetchone()
+    
+    current_weather = "sunny"
+    if prev_snapshot:
+        equity_delta = current_equity - float(prev_snapshot['equity'])
+        invested_delta = total_invested - float(prev_snapshot['total_invested'])
+        # Yield delta: simplified as (Equity Change) - (New Money Added)
+        # If yield_delta is negative, it means the assets themselves depreciated.
+        yield_delta = equity_delta - invested_delta
 
+        if equity_delta < -1.0: # Significant drop in total equity
+            current_weather = "stormy"
+            # Record persistent "scar" on the mountain
+            cursor.execute('INSERT OR IGNORE INTO journey_events (percentage, type, date) VALUES (?, ?, ?)',
+                           (round(progress, 1), 'storm', today_str))
+        elif yield_delta < -1.0: # Equity might be up because of contributions, but yield is down
+            current_weather = "cloudy"
+            cursor.execute('INSERT OR IGNORE INTO journey_events (percentage, type, date) VALUES (?, ?, ?)',
+                           (round(progress, 1), 'cloud', today_str))
+    
+    # 2. Update/Save today's snapshot (always the latest state of the day)
+    cursor.execute('''
+        INSERT INTO daily_snapshots (date, equity, total_invested)
+        VALUES (?, ?, ?)
+        ON CONFLICT(date) DO UPDATE SET equity=excluded.equity, total_invested=excluded.total_invested
+    ''', (today_str, current_equity, total_invested))
+    conn.commit()
+
+    # 3. Retrieve all persistent journey events
+    cursor.execute('SELECT percentage, type FROM journey_events ORDER BY percentage ASC')
+    metrics['journey_events'] = [dict(row) for row in cursor.fetchall()]
+    metrics['current_weather'] = current_weather
+    
     cursor.execute('SELECT percentage, reached_at FROM milestones ORDER BY percentage ASC')
     metrics['milestones'] = [dict(row) for row in cursor.fetchall()]
-
+    
     # Get start date
     cursor.execute('SELECT MIN(date) FROM investment_history')
     metrics['start_date'] = cursor.fetchone()[0] or today_str
